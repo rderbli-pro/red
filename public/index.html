@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Rasec - Espetinhos</title>
+  <meta name="description" content="Cardápio, vendas e gestão da Rasec - Espetinhos. Carne, frango e linguiça na brasa. Feira de Empreendedorismo C.E.P.K.">
+  <meta name="theme-color" content="#141110">
+  <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Rasec">
+  <link rel="icon" href="/assets/logo-rasec.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preload" href="/assets/fonts/press-start-2p.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/vt323.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <div id="app">
+    <div class="boot">
+      <img class="boot__logo" src="/assets/logo-rasec.svg" alt="" width="120" height="120">
+      <p class="boot__brand">RASEC</p>
+      <p class="boot__sub">ESPETINHOS</p>
+      <p class="boot__loading">CARREGANDO<span class="boot__dots" aria-hidden="true">...</span></p>
+    </div>
+  </div>
+  <div id="toasts" class="toasts" aria-live="polite" aria-atomic="false"></div>
+  <div id="modals"></div>
+  <noscript>
+    <div class="noscript">
+      <h1>JAVASCRIPT DESATIVADO</h1>
+      <p>Ative o JavaScript no navegador para usar o cardápio e o painel da Rasec.</p>
+    </div>
+  </noscript>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+{
+  "id": "/",
+  "name": "Rasec - Espetinhos",
+  "short_name": "Rasec",
+  "description": "Cardápio, vendas e gestão da Rasec - Espetinhos na Feira de Empreendedorismo do C.E.P.K.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "/#/cardapio",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#141110",
+  "theme_color": "#141110",
+  "categories": ["food", "business", "productivity"],
+  "icons": [
+    {
+      "src": "/assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Cardápio",
+      "short_name": "Cardápio",
+      "description": "Montar um novo pedido",
+      "url": "/#/cardapio",
+      "icons": [{ "src": "/assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Pedidos",
+      "short_name": "Pedidos",
+      "description": "Acompanhar a cozinha e as entregas",
+      "url": "/#/pedidos",
+      "icons": [{ "src": "/assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Painel",
+      "short_name": "Painel",
+      "description": "Ver as vendas do dia",
+      "url": "/#/painel",
+      "icons": [{ "src": "/assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}
