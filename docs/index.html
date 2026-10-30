@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rasec - Espetinhos</title>
+  <meta name="description" content="Documentação do sistema de cardápio, vendas e gestão da Rasec - Espetinhos.">
+  <style>
+    :root {
+      --ink: #141110;
+      --panel: #1d1917;
+      --cream: #f2e6cc;
+      --red: #e01c1c;
+      --gold: #e2a63c;
+      --muted: #a89a87;
+      --line: 3px solid #141110;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--ink);
+      color: var(--cream);
+      font-family: "Courier New", ui-monospace, monospace;
+      line-height: 1.55;
+    }
+    main { max-width: 880px; margin: 0 auto; padding: 48px 20px 64px; }
+    header { text-align: center; margin-bottom: 40px; }
+    .badge {
+      display: inline-block;
+      margin-bottom: 18px;
+      padding: 6px 12px;
+      border: 2px solid var(--gold);
+      color: var(--gold);
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 0 0 10px;
+      color: var(--red);
+      font-size: clamp(32px, 8vw, 56px);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      text-shadow: 4px 4px 0 #000;
+    }
+    .sub { margin: 0; color: var(--muted); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+      margin: 32px 0;
+    }
+    .card {
+      display: block;
+      padding: 22px;
+      background: var(--panel);
+      border: var(--line);
+      box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.75);
+      color: var(--cream);
+      text-decoration: none;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .card:hover, .card:focus-visible {
+      transform: translate(-2px, -2px);
+      box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.75);
+      border-color: var(--gold);
+      outline: none;
+    }
+    .card h2 { margin: 0 0 8px; color: var(--gold); font-size: 18px; letter-spacing: 1px; }
+    .card p { margin: 0; color: var(--muted); font-size: 14px; }
+    .note {
+      padding: 18px 20px;
+      border-left: 6px solid var(--red);
+      background: #241d1b;
+      margin: 28px 0;
+      font-size: 14px;
+    }
+    .note strong { color: var(--red); }
+    h2.section { color: var(--cream); font-size: 18px; letter-spacing: 1px; margin-top: 36px; }
+    pre {
+      overflow-x: auto;
+      padding: 16px;
+      background: #0d0b0a;
+      border: 2px solid #3a322d;
+      color: var(--cream);
+      font-size: 13px;
+    }
+    code { color: var(--gold); }
+    footer { margin-top: 44px; padding-top: 18px; border-top: 2px solid #3a322d; color: var(--muted); font-size: 12px; text-align: center; }
+    a { color: var(--gold); }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="badge">Feira de Empreendedorismo • C.E.P.K</div>
+      <h1>Rasec</h1>
+      <p class="sub">Espetinhos • cardápio, vendas, estoque e gestão</p>
+    </header>
+
+    <div class="grid">
+      <a class="card" href="https://github.com/rderbli-pro/red/blob/main/docs/BACKEND.md">
+        <h2>BACK-END</h2>
+        <p>API Node.js, autenticação, pedidos, estoque, banco JSON, backup e produção.</p>
+      </a>
+      <a class="card" href="https://github.com/rderbli-pro/red/blob/main/docs/FRONTEND.md">
+        <h2>FRONT-END</h2>
+        <p>SPA em JavaScript vanilla, views, carrinho, PWA e instalação no celular.</p>
+      </a>
+      <a class="card" href="https://github.com/rderbli-pro/red">
+        <h2>REPOSITÓRIO</h2>
+        <p>Código-fonte, README completo, testes e histórico de commits.</p>
+      </a>
+    </div>
+
+    <div class="note">
+      <strong>Esta página é só documentação.</strong> O app completo precisa de um servidor
+      Node.js com disco persistente para a API e o <code>db.json</code>. GitHub Pages não
+      executa back-end, então o sistema em si não roda aqui.
+    </div>
+
+    <h2 class="section">RODAR LOCALMENTE</h2>
+    <pre><code>npm start   # http://localhost:3000
+npm test    # 22 testes da API</code></pre>
+
+    <h2 class="section">DOCUMENTAÇÃO</h2>
+    <p>
+      <a href="https://github.com/rderbli-pro/red/blob/main/docs/BACKEND.md">Back-end</a> ·
+      <a href="https://github.com/rderbli-pro/red/blob/main/docs/FRONTEND.md">Front-end</a> ·
+      <a href="https://github.com/rderbli-pro/red#readme">README</a>
+    </p>
+
+    <footer>Rasec - Espetinhos • Node.js 20+ • PWA</footer>
+  </main>
+</body>
+</html>
