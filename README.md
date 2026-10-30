@@ -57,7 +57,7 @@ data/              banco em uso (ignorado pelo git)
   db.backup.json
 test/              testes de integração da API
 tools/             geradores de arte, checagem de encoding e utilitário WPA
-docs/              documentação separada de back-end e front-end
+docs/              documentação de back-end, front-end e deploy no Render
 ```
 
 ## Back-end em resumo
@@ -104,9 +104,11 @@ Detalhes de views, estado, cache e instalação: [`docs/FRONTEND.md`](docs/FRONT
 
 A arquitetura pede **disco persistente** e **uma única instância** (o banco é um JSON com escrita síncrona). Vercel, Netlify e funções serverless não servem.
 
-- **Recomendado**: VPS pequena + Caddy (HTTPS automático) + systemd + backup diário do `DATA_DIR`.
-- **Alternativa**: Fly.io, Railway ou Render com volume persistente e **1 réplica**.
+- **Render (mais simples)**: o `render.yaml` já configura Node, HTTPS, disco de 1 GB e healthcheck. Custa cerca de **US$ 7,25/mês** (Starter + disco). Passo a passo em [`docs/RENDER.md`](docs/RENDER.md).
+- **VPS pequena + Caddy + systemd**: controle total e HTTPS automático, com backup diário do `DATA_DIR`.
 - **Só para teste**: túnel (Cloudflare/ngrok), porque a URL muda e depende do PC ligado.
+
+> **Não use o plano Free do Render**: ele não aceita disco, dorme após 15 minutos e apaga o `db.json` a cada restart. Para vendas reais, use o plano pago com disco.
 
 Antes de publicar:
 

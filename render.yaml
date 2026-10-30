@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: rasec-espetinhos
+    runtime: node
+    plan: 0.5c-512mb
+    region: virginia
+    branch: main
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: 24.22.1
+      - key: TZ
+        value: America/Sao_Paulo
+      - key: DATA_DIR
+        value: /var/data
+      - key: COOKIE_SECURE
+        value: "1"
+      - key: SEED_PASSWORD
+        sync: false
+    disk:
+      name: rasec-data
+      mountPath: /var/data
+      sizeGB: 1
