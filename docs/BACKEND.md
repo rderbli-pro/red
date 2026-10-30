@@ -231,8 +231,7 @@ Códigos comuns: `invalid_credentials`, `rate_limited`, `forbidden`, `not_found`
 - **Processo único**: o JSON e as escritas síncronas não suportam múltiplas réplicas/instâncias.
 - `clientIp()` confia em `X-Forwarded-For` sem validação. Exposto direto na internet, um cliente pode forjar o header e driblar o rate limit. Em produção, use proxy confiável e restrinja o acesso direto à porta da aplicação.
 - Rate limit fica em memória (reinicia com o processo).
-- Sem HSTS na aplicação; configure no proxy.
-- `public/__preview.html` é um artefato de debug e deve ser removido antes de publicar.
+- Sem HSTS na aplicação; configure no proxy (o Render já entrega tudo em HTTPS).
 
 ## Persistência e backup
 

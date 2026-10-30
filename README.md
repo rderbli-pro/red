@@ -118,7 +118,6 @@ Antes de publicar:
 4. Configurar healthcheck em `/api/health` e restart automático.
 5. Agendar backup do `DATA_DIR`.
 6. Trocar senhas iniciais, o código de convite e revisar os admins.
-7. Remover `public/__preview.html`.
 
 Checklist completo em [`docs/BACKEND.md`](docs/BACKEND.md).
 
