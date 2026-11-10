@@ -5,7 +5,7 @@
  *  - Estáticos: cache primeiro com atualização em segundo plano.
  *  - API: sempre rede (nunca guarda dados de vendas/sessão no cache).
  */
-const CACHE = 'rasec-v1';
+const CACHE = 'rasec-v2';
 
 const APP_SHELL = [
   '/',
@@ -30,7 +30,8 @@ const APP_SHELL = [
   '/assets/logo-rasec.svg',
   '/assets/espeto-carne.svg',
   '/assets/espeto-frango.svg',
-  '/assets/espeto-linguica.svg',
+  '/assets/espeto-coracao.svg',
+  '/assets/espeto-misto.svg',
   '/assets/fonts/press-start-2p.woff2',
   '/assets/fonts/vt323.woff2',
   '/assets/icons/icon-192.png',

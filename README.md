@@ -16,10 +16,11 @@ Sem dependências externas, sem build e sem bundler.
 ```bash
 npm start        # http://localhost:3000
 npm run dev      # reinicia automaticamente ao salvar
-npm test         # testes da API (22 testes)
+npm test         # testes da API e da persistência
 npm run check:encoding  # procura textos com encoding quebrado
 npm run fix:encoding    # corrige automaticamente os textos encontrados
 npm run art      # regenera os SVGs do logo e dos espetinhos
+npm run import:firebase  # importa um backup JSON para o Firebase
 ```
 
 Requisito: **Node.js 20 ou superior**.
@@ -41,7 +42,8 @@ Ao criar o banco pela primeira vez, são cadastradas 7 contas:
 server/            back-end: HTTP, API, auth, banco JSON e arquivos estáticos
   index.js         bootstrap HTTP/HTTPS, headers e shutdown
   api.js           rotas e regras de negócio
-  store.js         seed, migração e gravação atômica
+  store.js         seed, migração, gravação atômica e sincronização
+  firebase.js      cliente REST do Firebase Realtime Database
   auth.js          scrypt e tokens de sessão
   util.js          validação, cookies, datas, dinheiro e CSV
   static.js        entrega de public/ com ETag e anti-path-traversal
@@ -52,11 +54,11 @@ public/            front-end: SPA, views, CSS, assets, manifest e service worker
   css/app.css      design system pixel art
   manifest.webmanifest
   sw.js
-data/              banco em uso (ignorado pelo git)
+data/              cache local (ignorado pelo git; opcional com Firebase)
   db.json
   db.backup.json
-test/              testes de integração da API
-tools/             geradores de arte, checagem de encoding e utilitário WPA
+test/              testes da API e da persistência (local e Firebase falso)
+tools/             geradores de arte, importador do Firebase, checagem de encoding e utilitário WPA
 docs/              documentação de back-end, front-end e deploy no Render
 ```
 
@@ -66,7 +68,8 @@ docs/              documentação de back-end, front-end e deploy no Render
 - Senhas com `scrypt`; papéis `admin` e `vendedor`; rate limit de login.
 - Pedidos com baixa de estoque, cancelamento com reposição e numeração `#001`.
 - Estatísticas do dia, exportação CSV, backup JSON e reset de vendas.
-- Persistência em `data/db.json` com escrita atômica (`tmp` + `rename`).
+- Persistência em `data/db.json` com escrita atômica (`tmp` + `rename`) e sincronização opcional com o Firebase.
+- **Firebase opcional**: o banco inteiro é lido/gravado no Realtime Database, então deploys e restarts não apagam os dados.
 - Headers de segurança, healthcheck em `GET /api/health` e logs de API.
 
 Variáveis principais:
@@ -75,9 +78,14 @@ Variáveis principais:
 |---|---|---|
 | `PORT` | `3000` | Porta do servidor. |
 | `HOST` | `0.0.0.0` | Interface de escuta. |
-| `DATA_DIR` | `./data` | Pasta do banco e do backup. |
+| `DATA_DIR` | `./data` | Pasta do cache local e do backup. |
 | `SEED_PASSWORD` | `rasec123` | Senha inicial usada só na criação do banco. |
 | `COOKIE_SECURE` | desligado | `1` força o cookie como `Secure` (use atrás de HTTPS). |
+| `FIREBASE_DATABASE_URL` | — | URL do Realtime Database; ativa a persistência externa. |
+| `FIREBASE_SERVICE_ACCOUNT_BASE64` | — | JSON da conta de serviço em Base64 (recomendado no Render). |
+| `FIREBASE_SERVICE_ACCOUNT` | — | JSON da conta de serviço em uma linha. |
+| `FIREBASE_SERVICE_ACCOUNT_FILE` | — | Caminho do JSON da conta de serviço. |
+| `FIREBASE_DB_PATH` | `rasec/db` | Nó do banco dentro do Realtime Database. |
 | `TLS_CERT` / `TLS_KEY` | — | Sobem HTTPS direto no Node. |
 
 Detalhes de rotas, modelo de dados, segurança e backup: [`docs/BACKEND.md`](docs/BACKEND.md).
@@ -102,22 +110,25 @@ Detalhes de views, estado, cache e instalação: [`docs/FRONTEND.md`](docs/FRONT
 
 ## Publicar fora do localhost
 
-A arquitetura pede **disco persistente** e **uma única instância** (o banco é um JSON com escrita síncrona). Vercel, Netlify e funções serverless não servem.
+O servidor continua sendo **uma única instância**, porque o banco é um JSON e as gravações são serializadas. Vercel, Netlify e funções serverless não servem.
 
-- **Render (mais simples)**: o `render.yaml` já configura Node, HTTPS, disco de 1 GB e healthcheck. Custa cerca de **US$ 7,25/mês** (Starter + disco). Passo a passo em [`docs/RENDER.md`](docs/RENDER.md).
-- **VPS pequena + Caddy + systemd**: controle total e HTTPS automático, com backup diário do `DATA_DIR`.
+Para não perder dados em deploy/restart, use um **Firebase Realtime Database** como banco externo. O app grava o JSON inteiro no Firebase a cada alteração e usa o arquivo local apenas como cache/backup rápido.
+
+- **Render (recomendado)**: o `render.yaml` já configura Node, HTTPS, healthcheck e as variáveis do Firebase. Com o banco externo, o plano **Free** pode ser usado (ele dorme após 15 min, mas os dados continuam no Firebase). Para a feira, prefira o plano pago para não ter a primeira requisição lenta.
+- **VPS pequena + Caddy + systemd**: controle total e HTTPS automático; pode usar Firebase ou um `DATA_DIR` com disco persistente.
 - **Só para teste**: túnel (Cloudflare/ngrok), porque a URL muda e depende do PC ligado.
 
-> **Não use o plano Free do Render**: ele não aceita disco, dorme após 15 minutos e apaga o `db.json` a cada restart. Para vendas reais, use o plano pago com disco.
+Passo a passo do Firebase e do Render em [`docs/RENDER.md`](docs/RENDER.md).
 
 Antes de publicar:
 
-1. Definir `SEED_PASSWORD` forte no primeiro boot.
-2. Montar disco persistente em `DATA_DIR`.
-3. Usar HTTPS e `COOKIE_SECURE=1`.
-4. Configurar healthcheck em `/api/health` e restart automático.
-5. Agendar backup do `DATA_DIR`.
-6. Trocar senhas iniciais, o código de convite e revisar os admins.
+1. Criar o Realtime Database e a conta de serviço no Firebase.
+2. Configurar `FIREBASE_DATABASE_URL` e `FIREBASE_SERVICE_ACCOUNT_BASE64` no Render.
+3. Definir `SEED_PASSWORD` forte no primeiro boot.
+4. Usar HTTPS e `COOKIE_SECURE=1`.
+5. Configurar healthcheck em `/api/health` e restart automático.
+6. Baixar um backup JSON pelo app depois da configuração.
+7. Trocar senhas iniciais, o código de convite e revisar os admins.
 
 Checklist completo em [`docs/BACKEND.md`](docs/BACKEND.md).
 

@@ -2,10 +2,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { hashPassword } from './auth.js';
+import { createFirebaseBackend } from './firebase.js';
 import { nowIso } from './util.js';
 
 const DEFAULT_PASSWORD = process.env.SEED_PASSWORD || 'rasec123';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
+const FIREBASE_RETRY_MS = 5_000;
+const FIREBASE_RETRY_MAX_MS = 30_000;
 
 export const TEAM = [
   { username: 'bruno', name: 'Bruno' },
@@ -43,16 +46,28 @@ const PRODUCTS = [
     order: 2,
   },
   {
-    id: 'linguica',
-    name: 'Espetinho de Linguiça',
-    shortName: 'Linguiça',
-    description: 'Linguiça artesanal na brasa, com aquele toque defumado que todo mundo ama.',
-    price: 700,
+    id: 'coracao',
+    name: 'Espetinho de Coração de Galinha',
+    shortName: 'Coração',
+    description: 'Coração de galinha temperado e dourado na brasa, macio por dentro e crocante por fora.',
+    price: 800,
     stock: 60,
     available: true,
-    image: '/assets/espeto-linguica.svg',
-    accent: '#b23c2b',
+    image: '/assets/espeto-coracao.svg',
+    accent: '#b23c3c',
     order: 3,
+  },
+  {
+    id: 'misto',
+    name: 'Espetinho Misto',
+    shortName: 'Misto',
+    description: 'Carne bovina com pimentão e cebola na brasa, colorido e cheio de sabor.',
+    price: 1000,
+    stock: 60,
+    available: true,
+    image: '/assets/espeto-misto.svg',
+    accent: '#6f8f3a',
+    order: 4,
   },
 ];
 
@@ -91,18 +106,42 @@ function seedDatabase() {
 /** Completa campos que possam faltar em bancos antigos. */
 function migrate(db) {
   const seeded = seedDatabase();
-  db.version ??= DB_VERSION;
+  db.version = DB_VERSION;
   db.createdAt ??= nowIso();
   db.users ??= [];
+  if (!db.users.length) db.users = seeded.users;
+  db.products ??= [];
   db.orders ??= [];
   db.sessions ??= [];
   db.settings ??= { ...seeded.settings };
   db.settings.inviteCode ??= 'RASEC2026';
   db.settings.shopName ??= 'Rasec - Espetinhos';
   db.settings.fairName ??= 'Feira de Empreendedorismo • C.E.P.K';
+  db.settings.version = DB_VERSION;
   db.counters ??= { nextOrderNumber: 1 };
 
-  // Garante os três sabores caso o arquivo tenha sido criado incompleto.
+  // O sabor de linguiça saiu do cardápio. Quando o banco antigo tem esse item,
+  // ele vira o coração de galinha (preservando preço/estoque configurados).
+  const heart = PRODUCTS.find((product) => product.id === 'coracao');
+  const legacy = db.products.find((product) => product.id === 'linguica');
+  if (legacy) {
+    const alreadyHasHeart = db.products.some((product) => product.id === 'coracao');
+    if (alreadyHasHeart) {
+      db.products = db.products.filter((product) => product.id !== 'linguica');
+    } else {
+      Object.assign(legacy, {
+        id: heart.id,
+        name: heart.name,
+        shortName: heart.shortName,
+        description: heart.description,
+        image: heart.image,
+        accent: heart.accent,
+        order: heart.order,
+      });
+    }
+  }
+
+  // Garante todos os sabores caso o arquivo tenha sido criado incompleto.
   for (const product of PRODUCTS) {
     if (!db.products.some((item) => item.id === product.id)) {
       db.products.push({ ...product });
@@ -117,24 +156,58 @@ function migrate(db) {
   return db;
 }
 
-export function createStore({ dataDir } = {}) {
+function readLocalDatabase(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (error) {
+    throw new Error(
+      `Não foi possível ler ${file}. O arquivo pode estar corrompido. ` +
+        `Faça backup e remova-o para começar do zero. Detalhe: ${error.message}`,
+    );
+  }
+}
+
+/**
+ * Cria o banco local (JSON) e, quando configurado, sincroniza com o Firebase.
+ * A leitura do Firebase é assíncrona; por isso a criação da store também é.
+ */
+export async function createStore({ dataDir, firebase } = {}) {
   const directory = path.resolve(dataDir || process.env.DATA_DIR || 'data');
   fs.mkdirSync(directory, { recursive: true });
   const file = path.join(directory, 'db.json');
   const backupFile = path.join(directory, 'db.backup.json');
 
+  const remote = firebase || createFirebaseBackend();
+
   let seeded = false;
   /** @type {any} */
   let db;
-  if (fs.existsSync(file)) {
+
+  if (remote.enabled) {
+    let remoteDb;
     try {
-      db = migrate(JSON.parse(fs.readFileSync(file, 'utf8')));
+      remoteDb = await remote.load();
     } catch (error) {
       throw new Error(
-        `Não foi possível ler ${file}. O arquivo pode estar corrompido. ` +
-          `Faça backup e remova-o para começar do zero. Detalhe: ${error.message}`,
+        `Não foi possível carregar o banco do Firebase. ` +
+          `O app não vai iniciar com dados vazios por segurança. Detalhe: ${error.message}`,
       );
     }
+
+    if (remoteDb) {
+      if (typeof remoteDb !== 'object' || Array.isArray(remoteDb)) {
+        throw new Error('O banco remoto do Firebase está em um formato inválido.');
+      }
+      db = migrate(remoteDb);
+    } else if (fs.existsSync(file)) {
+      // Primeira vez com Firebase: sobe o banco local que já existe.
+      db = migrate(readLocalDatabase(file));
+    } else {
+      db = seedDatabase();
+      seeded = true;
+    }
+  } else if (fs.existsSync(file)) {
+    db = migrate(readLocalDatabase(file));
   } else {
     db = seedDatabase();
     seeded = true;
@@ -142,7 +215,7 @@ export function createStore({ dataDir } = {}) {
 
   let lastSavedAt = null;
 
-  function persist() {
+  function persistLocal() {
     const temp = `${file}.tmp`;
     const json = JSON.stringify(db, null, 2);
     try {
@@ -155,8 +228,63 @@ export function createStore({ dataDir } = {}) {
     lastSavedAt = new Date();
   }
 
+  let remoteDirty = false;
+  let remoteActive = null;
+  let remoteTimer = null;
+  let remoteRetryMs = FIREBASE_RETRY_MS;
+  let lastRemoteError = null;
+  let lastRemoteSavedAt = null;
+
+  function scheduleRemoteRetry() {
+    if (!remote.enabled || remoteTimer) return;
+    remoteTimer = setTimeout(() => {
+      remoteTimer = null;
+      if (remoteDirty) queueRemoteSave();
+    }, remoteRetryMs);
+    remoteTimer.unref?.();
+    remoteRetryMs = Math.min(remoteRetryMs * 2, FIREBASE_RETRY_MAX_MS);
+  }
+
+  function queueRemoteSave() {
+    if (!remote.enabled) return Promise.resolve(true);
+    remoteDirty = true;
+    if (!remoteActive) remoteActive = flushRemote();
+    return remoteActive;
+  }
+
+  async function flushRemote() {
+    try {
+      while (remoteDirty) {
+        remoteDirty = false;
+        try {
+          await remote.save(db);
+          lastRemoteError = null;
+          lastRemoteSavedAt = new Date();
+          remoteRetryMs = FIREBASE_RETRY_MS;
+        } catch (error) {
+          remoteDirty = true;
+          lastRemoteError = error;
+          console.error('[rasec] falha ao gravar no Firebase:', error.message);
+          scheduleRemoteRetry();
+          break;
+        }
+      }
+    } finally {
+      remoteActive = null;
+    }
+    return !lastRemoteError;
+  }
+
   function save() {
-    persist();
+    persistLocal();
+    return queueRemoteSave();
+  }
+
+  function flush() {
+    if (!remote.enabled) return Promise.resolve(true);
+    if (remoteActive) return remoteActive;
+    if (!remoteDirty) return Promise.resolve(!lastRemoteError);
+    return queueRemoteSave();
   }
 
   function snapshot() {
@@ -166,10 +294,39 @@ export function createStore({ dataDir } = {}) {
     };
   }
 
+  function storageStatus() {
+    return {
+      mode: remote.enabled ? 'firebase' : 'local',
+      database: remote.enabled ? `${remote.databaseUrl}/${remote.databasePath}` : file,
+      localFile: file,
+      pending: remoteDirty,
+      ok: !lastRemoteError,
+      lastError: lastRemoteError ? lastRemoteError.message : null,
+      lastRemoteSavedAt: lastRemoteSavedAt ? lastRemoteSavedAt.toISOString() : null,
+    };
+  }
+
+  // Com o Firebase configurado, a primeira gravação remota precisa acontecer
+  // antes de o servidor começar a atender. Sem isso, um deploy que subisse com
+  // banco vazio poderia sobrescrever os dados bons.
+  if (remote.enabled) {
+    persistLocal();
+    try {
+      await remote.save(db);
+      lastRemoteSavedAt = new Date();
+      lastRemoteError = null;
+    } catch (error) {
+      throw new Error(
+        `Não foi possível gravar o banco no Firebase durante a inicialização. ` +
+          `Verifique a URL, a conta de serviço e as regras do Realtime Database. Detalhe: ${error.message}`,
+      );
+    }
+  }
+
   // Sessões expiradas não precisam mais ocupar o arquivo.
   const before = db.sessions.length;
   db.sessions = db.sessions.filter((session) => new Date(session.expiresAt).getTime() > Date.now());
-  if (db.sessions.length !== before) persist();
+  if (db.sessions.length !== before) await save();
 
   if (seeded) {
     // Guarda uma cópia do estado inicial (sem sessões) para emergências.
@@ -185,12 +342,19 @@ export function createStore({ dataDir } = {}) {
     file,
     backupFile,
     save,
+    flush,
     snapshot,
+    storageStatus,
     seeded,
     defaultPassword: DEFAULT_PASSWORD,
     dataDir: directory,
     get lastSavedAt() {
       return lastSavedAt;
+    },
+    get storageDescription() {
+      return remote.enabled
+        ? `Firebase (${remote.databaseUrl}/${remote.databasePath}) + cache local`
+        : file;
     },
   };
 }

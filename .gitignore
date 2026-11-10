@@ -4,3 +4,7 @@ data/
 .preview-*
 .DS_Store
 Thumbs.db
+.env
+.env.*
+serviceAccount*.json
+*firebase-adminsdk*.json

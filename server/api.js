@@ -318,7 +318,7 @@ export function createApi(store) {
       loginFailures.delete(key);
       user.lastLoginAt = nowIso();
       startSession(req, res, user);
-      store.save();
+      await store.save();
       return sendJson(res, 200, { user: hideUser(user) });
     }
 
@@ -353,7 +353,7 @@ export function createApi(store) {
       };
       db.users.push(user);
       startSession(req, res, user);
-      store.save();
+      await store.save();
       return sendJson(res, 201, { user: hideUser(user) });
     }
 
@@ -363,7 +363,7 @@ export function createApi(store) {
         const tokenHash = hashToken(token);
         const before = db.sessions.length;
         db.sessions = db.sessions.filter((session) => session.tokenHash !== tokenHash);
-        if (db.sessions.length !== before) store.save();
+        if (db.sessions.length !== before) await store.save();
       }
       clearCookie(res, COOKIE);
       return sendJson(res, 200, { ok: true });
@@ -404,14 +404,14 @@ export function createApi(store) {
       db.sessions = db.sessions.filter(
         (item) => item.userId !== user.id || item.id === session.id,
       );
-      store.save();
+      await store.save();
       return sendJson(res, 200, { ok: true, user: hideUser(user) });
     }
 
     throw new HttpError(404, 'Rota de autenticação não encontrada.', 'not_found');
   }
 
-  function handleProducts(req, res, method, segments) {
+  async function handleProducts(req, res, method, segments) {
     if (method === 'GET' && segments.length === 2) {
       requireAuth(req);
       return sendJson(res, 200, { products: productsWithSales(), serverTime: nowIso() });
@@ -421,20 +421,19 @@ export function createApi(store) {
       requireAdmin(req);
       const product = db.products.find((item) => item.id === segments[2]);
       if (!product) throw new HttpError(404, 'Sabor não encontrado.', 'not_found');
-      return readJson(req).then((body) => {
-        if (body.price !== undefined) {
-          product.price = toInt(body.price, { min: 0, max: 100000, field: 'price', label: 'Preço' });
-        }
-        if (body.stock !== undefined) {
-          product.stock = toInt(body.stock, { min: 0, max: 100000, field: 'stock', label: 'Estoque' });
-        }
-        if (body.available !== undefined) {
-          product.available = Boolean(body.available);
-        }
-        store.save();
-        const updated = productsWithSales().find((item) => item.id === product.id);
-        return sendJson(res, 200, { product: updated });
-      });
+      const body = await readJson(req);
+      if (body.price !== undefined) {
+        product.price = toInt(body.price, { min: 0, max: 100000, field: 'price', label: 'Preço' });
+      }
+      if (body.stock !== undefined) {
+        product.stock = toInt(body.stock, { min: 0, max: 100000, field: 'stock', label: 'Estoque' });
+      }
+      if (body.available !== undefined) {
+        product.available = Boolean(body.available);
+      }
+      await store.save();
+      const updated = productsWithSales().find((item) => item.id === product.id);
+      return sendJson(res, 200, { product: updated });
     }
 
     throw new HttpError(404, 'Rota de produtos não encontrada.', 'not_found');
@@ -645,7 +644,7 @@ export function createApi(store) {
       }
 
       db.orders.push(order);
-      store.save();
+      await store.save();
       return sendJson(res, 201, { order: orderWithMeta(order) });
     }
 
@@ -673,7 +672,7 @@ export function createApi(store) {
       order.status = status;
       order.updatedAt = nowIso();
       order.statusHistory.push({ status, at: order.updatedAt, byName: user.name });
-      store.save();
+      await store.save();
       return sendJson(res, 200, { order: orderWithMeta(order) });
     }
 
@@ -718,7 +717,7 @@ export function createApi(store) {
         lastLoginAt: null,
       };
       db.users.push(user);
-      store.save();
+      await store.save();
       return sendJson(res, 201, { user: hideUser(user) });
     }
 
@@ -756,7 +755,7 @@ export function createApi(store) {
         db.sessions = db.sessions.filter((session) => session.userId !== target.id);
       }
 
-      store.save();
+      await store.save();
       return sendJson(res, 200, {
         user: hideUser(target),
         ...(tempPassword ? { temporaryPassword: tempPassword } : {}),
@@ -790,14 +789,14 @@ export function createApi(store) {
         }
         db.settings.inviteCode = code;
       }
-      store.save();
+      await store.save();
       return sendJson(res, 200, { settings: { inviteCode: db.settings.inviteCode } });
     }
 
     throw new HttpError(404, 'Rota de configurações não encontrada.', 'not_found');
   }
 
-  function handleAdmin(req, res, method, segments) {
+  async function handleAdmin(req, res, method, segments) {
     if (method === 'GET' && segments[2] === 'backup') {
       requireAdmin(req);
       const payload = {
@@ -817,16 +816,15 @@ export function createApi(store) {
 
     if (method === 'POST' && segments[2] === 'reset-orders') {
       requireAdmin(req);
-      return readJson(req).then((body) => {
-        if (String(body.confirm || '') !== 'APAGAR') {
-          throw new HttpError(400, 'Confirmação inválida. Digite APAGAR para zerar as vendas.', 'invalid_confirmation');
-        }
-        const removed = db.orders.length;
-        db.orders = [];
-        db.counters.nextOrderNumber = 1;
-        store.save();
-        return sendJson(res, 200, { ok: true, removed });
-      });
+      const body = await readJson(req);
+      if (String(body.confirm || '') !== 'APAGAR') {
+        throw new HttpError(400, 'Confirmação inválida. Digite APAGAR para zerar as vendas.', 'invalid_confirmation');
+      }
+      const removed = db.orders.length;
+      db.orders = [];
+      db.counters.nextOrderNumber = 1;
+      await store.save();
+      return sendJson(res, 200, { ok: true, removed });
     }
 
     throw new HttpError(404, 'Rota administrativa não encontrada.', 'not_found');
@@ -844,6 +842,7 @@ export function createApi(store) {
         ok: true,
         app: 'Rasec - Espetinhos',
         version: 1,
+        storage: store.storageStatus(),
         time: nowIso(),
       });
     }

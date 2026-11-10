@@ -14,22 +14,23 @@ function heroMarkup() {
         <p class="hero__kicker">C.E.P.K • FEIRA DE EMPREENDEDORISMO</p>
         <h1 class="hero__title" id="hero-title">RASEC</h1>
         <p class="hero__subtitle">ESPETINHOS</p>
-        <p class="hero__text">Carne, frango e linguiça na brasa. Feito na hora, do jeito que você gosta.</p>
+        <p class="hero__text">Carne, frango, coração e misto na brasa. Feito na hora, do jeito que você gosta.</p>
         <ul class="hero__chips" aria-label="Sabores">
           <li>CARNE</li>
           <li>FRANGO</li>
-          <li>LINGUIÇA</li>
+          <li>CORAÇÃO</li>
+          <li>MISTO</li>
         </ul>
       </div>
       <div class="hero__art" aria-hidden="true">
         <span class="hero__burst"></span>
-        <img src="/assets/espeto-linguica.svg" alt="" width="118" height="214">
+        <img src="/assets/espeto-misto.svg" alt="" width="118" height="214">
       </div>
       <span class="hero__ribbon" aria-hidden="true">NOVO!</span>
       <div class="hero__marquee" aria-hidden="true">
         <div class="hero__marquee-track">
-          <span>NA BRASA • FEITO NA HORA • CARNE • FRANGO • LINGUIÇA • NA BRASA • FEITO NA HORA • CARNE • FRANGO • LINGUIÇA • </span>
-          <span>NA BRASA • FEITO NA HORA • CARNE • FRANGO • LINGUIÇA • NA BRASA • FEITO NA HORA • CARNE • FRANGO • LINGUIÇA • </span>
+          <span>NA BRASA • FEITO NA HORA • CARNE • FRANGO • CORAÇÃO • MISTO • NA BRASA • FEITO NA HORA • CARNE • FRANGO • CORAÇÃO • MISTO • </span>
+          <span>NA BRASA • FEITO NA HORA • CARNE • FRANGO • CORAÇÃO • MISTO • NA BRASA • FEITO NA HORA • CARNE • FRANGO • CORAÇÃO • MISTO • </span>
         </div>
       </div>
     </section>
@@ -122,7 +123,7 @@ export async function renderMenu(host, ctx) {
           <p class="eyebrow">MONTE SEU PEDIDO</p>
           <h2>CARDÁPIO</h2>
         </div>
-        <span class="section-head__note">${icon('flame', 16)} 3 sabores na brasa</span>
+        <span class="section-head__note">${icon('flame', 16)} 4 sabores na brasa</span>
       </div>
       ${spinnerBlock('ACENDENDO A CHURRASQUEIRA...')}
     </div>
@@ -153,7 +154,7 @@ export async function renderMenu(host, ctx) {
           <h2>CARDÁPIO</h2>
         </div>
         <div class="section-head__actions">
-          <span class="section-head__note">${icon('flame', 16)} 3 sabores na brasa</span>
+          <span class="section-head__note">${icon('flame', 16)} ${products.length} sabores na brasa</span>
           <button class="btn btn--ghost btn--sm" type="button" data-action="refresh" aria-label="Atualizar cardápio">${icon('refresh', 14)} ATUALIZAR</button>
         </div>
       </div>

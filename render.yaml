@@ -2,7 +2,7 @@ services:
   - type: web
     name: rasec-espetinhos
     runtime: node
-    plan: 0.5c-512mb
+    plan: free
     region: virginia
     branch: main
     buildCommand: npm install
@@ -14,13 +14,13 @@ services:
         value: 24.22.1
       - key: TZ
         value: America/Sao_Paulo
-      - key: DATA_DIR
-        value: /var/data
       - key: COOKIE_SECURE
         value: "1"
+      - key: FIREBASE_DB_PATH
+        value: rasec/db
       - key: SEED_PASSWORD
         sync: false
-    disk:
-      name: rasec-data
-      mountPath: /var/data
-      sizeGB: 1
+      - key: FIREBASE_DATABASE_URL
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_BASE64
+        sync: false

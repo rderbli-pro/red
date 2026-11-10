@@ -14,9 +14,9 @@ export function renderLogin(root, { api, onSuccess, notice = '' }) {
         <p class="login__kicker">FEIRA DE EMPREENDEDORISMO</p>
         <h1 class="login__title">RASEC</h1>
         <p class="login__subtitle">ESPETINHOS</p>
-        <p class="login__tagline">Carne, frango e linguiça.<br>Na brasa, feito na hora.</p>
+        <p class="login__tagline">Carne, frango, coração e misto.<br>Na brasa, feito na hora.</p>
         <span class="login__ribbon">NOVO!</span>
-        <img class="login__skewer" src="/assets/espeto-carne.svg" alt="" width="120" height="218">
+        <img class="login__skewer" src="/assets/espeto-coracao.svg" alt="" width="120" height="218">
       </section>
 
       <section class="login__panel panel" aria-labelledby="login-heading">

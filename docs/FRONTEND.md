@@ -28,7 +28,7 @@ O front-end é uma **SPA em JavaScript vanilla**, com ES Modules, **sem build, s
 | `public/css/app.css` | Design system pixel art, layout responsivo e estilos de impressão. |
 | `public/manifest.webmanifest` | Metadados e atalhos do PWA. |
 | `public/sw.js` | Service worker (app shell + estratégia de cache). |
-| `public/assets/` | Logo, espetinhos em SVG, fontes WOFF2 e ícones PNG. |
+| `public/assets/` | Logo, espetinhos (carne, frango, coração e misto) em SVG, fontes WOFF2 e ícones PNG. |
 
 ## Rodar e depurar
 
@@ -41,7 +41,7 @@ npm start   # ou npm run dev
 - Abra `http://localhost:3000`.
 - Para evitar cache durante o desenvolvimento, use **Ctrl+Shift+R** ou DevTools → Network → *Disable cache*.
 - O service worker só é registrado em **HTTPS ou localhost**.
-- Ao alterar arquivos do app shell, incremente `CACHE` em `public/sw.js` (ex.: `rasec-v2`) para forçar a atualização nos aparelhos.
+- Ao alterar arquivos do app shell, incremente `CACHE` em `public/sw.js` (ex.: `rasec-v3`) para forçar a atualização nos aparelhos.
 
 ## Rotas (hash router)
 

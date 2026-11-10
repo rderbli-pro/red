@@ -14,7 +14,7 @@ let vendorCookie = '';
 
 async function start() {
   dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rasec-test-'));
-  const app = createApp({ dataDir });
+  const app = await createApp({ dataDir });
   server = http.createServer(app.handler);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
@@ -73,7 +73,7 @@ test('API da Rasec - fluxo completo', async (t) => {
     const sw = await call('/sw.js');
     assert.equal(sw.response.status, 200);
     assert.equal(sw.response.headers.get('cache-control'), 'no-cache');
-    assert.match(sw.text, /rasec-v1/);
+    assert.match(sw.text, /rasec-v\d+/);
 
     const icon = await call('/assets/icons/icon-192.png');
     assert.equal(icon.response.status, 200);
@@ -85,14 +85,17 @@ test('API da Rasec - fluxo completo', async (t) => {
     assert.match(html.text, /apple-touch-icon\.png/);
   });
 
-  await t.test('seed cria 7 contas e 3 sabores', async () => {
+  await t.test('seed cria 7 contas e 4 sabores', async () => {
     assert.equal(app.store.db.users.length, 7);
     assert.deepEqual(
       app.store.db.users.map((user) => user.username).sort(),
       ['bruna', 'bruno', 'eduardo', 'endrick', 'jhonathan', 'julia', 'kaua'],
     );
-    assert.equal(app.store.db.products.length, 3);
+    assert.equal(app.store.db.products.length, 4);
     assert.equal(app.store.db.products.find((product) => product.id === 'carne').price, 900);
+    assert.equal(app.store.db.products.find((product) => product.id === 'coracao').price, 800);
+    assert.equal(app.store.db.products.find((product) => product.id === 'misto').price, 1000);
+    assert.equal(app.store.db.products.some((product) => product.id === 'linguica'), false);
   });
 
   await t.test('login recusa senha errada', async () => {
@@ -127,7 +130,7 @@ test('API da Rasec - fluxo completo', async (t) => {
     assert.equal(response.status, 401);
     const { response: ok, json } = await call('/api/products', { cookie: adminCookie });
     assert.equal(ok.status, 200);
-    assert.equal(json.products.length, 3);
+    assert.equal(json.products.length, 4);
     assert.equal(json.products.every((product) => product.stock === 60), true);
   });
 
@@ -177,7 +180,7 @@ test('API da Rasec - fluxo completo', async (t) => {
       body: {
         payment: 'dinheiro',
         cashGiven: 1000,
-        items: [{ productId: 'linguica', qty: 2 }],
+        items: [{ productId: 'coracao', qty: 2 }],
       },
     });
     assert.equal(response.status, 400);
@@ -192,12 +195,12 @@ test('API da Rasec - fluxo completo', async (t) => {
         customer: 'Beto',
         payment: 'dinheiro',
         cashGiven: 5000,
-        items: [{ productId: 'linguica', qty: 2 }],
+        items: [{ productId: 'coracao', qty: 2 }],
       },
     });
     assert.equal(response.status, 201);
-    assert.equal(json.order.total, 1400);
-    assert.equal(json.order.change, 3600);
+    assert.equal(json.order.total, 1600);
+    assert.equal(json.order.change, 3400);
     assert.equal(json.order.number, 2);
   });
 
@@ -392,7 +395,7 @@ test('API da Rasec - fluxo completo', async (t) => {
     const newSale = await call('/api/orders', {
       method: 'POST',
       cookie: adminCookie,
-      body: { payment: 'pix', items: [{ productId: 'linguica', qty: 1 }] },
+      body: { payment: 'pix', items: [{ productId: 'coracao', qty: 1 }] },
     });
     assert.equal(newSale.json.order.number, 1);
   });

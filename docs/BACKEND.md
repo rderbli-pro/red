@@ -2,7 +2,7 @@
 
 Documentação da camada de servidor do **Rasec - Espetinhos**. O front-end (SPA/PWA) está em [`docs/FRONTEND.md`](./FRONTEND.md).
 
-O back-end é uma API HTTP em **Node.js puro**, sem dependências externas, que também serve os arquivos estáticos do front-end. Persiste tudo em um único arquivo JSON.
+O back-end é uma API HTTP em **Node.js puro**, sem dependências externas, que também serve os arquivos estáticos do front-end. Persiste tudo em um único JSON local e, opcionalmente, sincroniza esse JSON com o **Firebase Realtime Database** (API REST).
 
 ## Responsabilidades
 
@@ -19,11 +19,12 @@ O back-end é uma API HTTP em **Node.js puro**, sem dependências externas, que 
 |---|---|
 | `server/index.js` | Bootstrap: cria o app HTTP/HTTPS, aplica headers, serve `/api/*` e o front-end, imprime endereços e trata `SIGINT`/`SIGTERM`. |
 | `server/api.js` | Roteador e regras da API (auth, produtos, pedidos, stats, usuários, configurações, admin). |
-| `server/store.js` | Seed, migração, escrita atômica e snapshot do `db.json`. |
+| `server/store.js` | Seed, migração, escrita atômica, cache local e sincronização com o Firebase. |
+| `server/firebase.js` | Cliente REST do Realtime Database, JWT da conta de serviço e leitura/gravação do nó. |
 | `server/auth.js` | Hash de senha com `scrypt`, geração/hash de token de sessão. |
 | `server/util.js` | Erros HTTP, JSON, cookies, IP do cliente, validação, datas, dinheiro e CSV. |
 | `server/static.js` | Entrega de `public/`, ETag, cache e proteção contra path traversal. |
-| `test/api.test.js` | Testes de integração do fluxo completo (22 testes). |
+| `test/api.test.js` | Testes de integração do fluxo completo. |
 
 ## Rodar
 
@@ -41,9 +42,15 @@ Requisito: **Node.js 20+**. Não há `npm install` obrigatório (zero dependênc
 |---|---|---|
 | `PORT` | `3000` | Porta HTTP/HTTPS. |
 | `HOST` | `0.0.0.0` | Interface de escuta. |
-| `DATA_DIR` | `./data` | Pasta do `db.json` e `db.backup.json`. |
+| `DATA_DIR` | `./data` | Pasta do `db.json` e `db.backup.json` (cache local). |
 | `SEED_PASSWORD` | `rasec123` | Senha inicial das 7 contas, usada **somente na criação** do banco. |
 | `COOKIE_SECURE` | desligado | `1` marca o cookie de sessão como `Secure`. Obrigatório atrás de proxy HTTPS. |
+| `FIREBASE_DATABASE_URL` | — | URL do Realtime Database. Junto com uma credencial, ativa o banco externo. |
+| `FIREBASE_SERVICE_ACCOUNT_BASE64` | — | JSON da conta de serviço em Base64 (recomendado em produção). |
+| `FIREBASE_SERVICE_ACCOUNT` | — | JSON da conta de serviço em uma linha. |
+| `FIREBASE_SERVICE_ACCOUNT_FILE` | — | Caminho do JSON da conta de serviço. |
+| `GOOGLE_APPLICATION_CREDENTIALS` | — | Alternativa ao arquivo acima. |
+| `FIREBASE_DB_PATH` | `rasec/db` | Nó do Realtime Database onde o banco inteiro é gravado. |
 | `TLS_CERT` | — | Certificado PEM; junto com `TLS_KEY`, sobe HTTPS direto no Node. |
 | `TLS_KEY` | — | Chave PEM correspondente. |
 
@@ -61,7 +68,7 @@ Headers aplicados: `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame
 
 ```jsonc
 {
-  "version": 1,
+  "version": 2,
   "createdAt": "2026-10-26T14:54:36.576Z",
   "users": [
     {
@@ -89,6 +96,7 @@ Headers aplicados: `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame
       "accent": "#a64b2a",
       "order": 1
     }
+    // também: frango, coracao e misto
   ],
   "orders": [
     {
@@ -130,7 +138,7 @@ Headers aplicados: `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame
     "inviteCode": "RASEC2026",
     "shopName": "Rasec - Espetinhos",
     "fairName": "Feira de Empreendedorismo • C.E.P.K",
-    "version": 1
+    "version": 2
   },
   "counters": { "nextOrderNumber": 1 }
 }
@@ -138,12 +146,23 @@ Headers aplicados: `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame
 
 Comportamentos do `store`:
 
-- Se `db.json` não existe, cria o banco com 7 contas, 3 sabores e configurações padrão.
-- `migrate()` completa campos ausentes, garante os 3 produtos e corrige o contador de pedidos.
+- Sem `db.json` e sem Firebase, cria o banco com 7 contas, **4 sabores** (carne, frango, coração e misto) e configurações padrão.
+- `migrate()` completa campos ausentes, converte o antigo sabor `linguica` em `coracao` (preservando preço/estoque), garante os 4 produtos e corrige o contador de pedidos.
 - Grava em `db.json.tmp` e faz `rename` (atômico); se falhar, tenta gravação direta.
 - `db.backup.json` é criado **apenas no primeiro seed** (estado inicial sem sessões).
 - Sessões expiradas são removidas na carga e no acesso.
 - Dinheiro é sempre inteiro em **centavos**.
+
+### Firebase (banco externo)
+
+- Ativado quando `FIREBASE_DATABASE_URL` e uma credencial de conta de serviço estão definidas.
+- No boot, o app **lê o Firebase primeiro**; se o nó não existir e houver `db.json` local, sobe esse banco. Se não houver nada, cria o seed e grava.
+- Se o Firebase estiver configurado mas inacessível no boot, o processo **não inicia** — assim um deploy não sobrescreve dados bons com um banco vazio.
+- Cada `store.save()` atualiza o cache local e enfileira a gravação do JSON inteiro no Firebase. As rotas que alteram dados aguardam a gravação antes de responder.
+- Falhas de rede no Firebase são registradas, o app continua atendendo e a gravação é repetida com backoff (5 s até 30 s).
+- O nó remoto padrão é `rasec/db`. O banco inteiro fica em um único valor, o que combina com o modelo atual (uma instância, poucos milhares de pedidos).
+- O cache local em `DATA_DIR` continua sendo gravado, mas não é a fonte da verdade quando o Firebase está ativo.
+- Sessões também vão para o Firebase; por isso os logins sobrevivem a deploy/restart.
 
 ## API
 
@@ -151,7 +170,7 @@ Prefixo: `/api`. Autenticação por cookie `rasec_sessao`.
 
 | Método | Rota | Acesso | Descrição |
 |---|---|---|---|
-| `GET` | `/api/health` | público | Healthcheck `{ ok, app, version, time }`. |
+| `GET` | `/api/health` | público | Healthcheck `{ ok, app, version, storage, time }`. |
 | `POST` | `/api/auth/login` | público | Login (`username`, `password`). |
 | `POST` | `/api/auth/register` | público | Cadastro com `inviteCode`; cria `vendedor`. |
 | `POST` | `/api/auth/logout` | sessão | Remove a sessão atual. |
@@ -235,12 +254,16 @@ Códigos comuns: `invalid_credentials`, `rate_limited`, `forbidden`, `not_found`
 
 ## Persistência e backup
 
-- Banco em `DATA_DIR/db.json`; use **disco persistente** em qualquer hospedagem.
+- Sem Firebase: banco em `DATA_DIR/db.json`; use **disco persistente** em qualquer hospedagem.
+- Com Firebase: o banco vive no Realtime Database; o `db.json` local é só cache. Não é necessário disco.
 - Backup manual: **Equipe → Backup** (JSON) ou `GET /api/admin/backup`.
 - Exportação de vendas: **CSV** (separador `;`, compatível com Excel pt-BR).
 - **Zerar vendas** apaga os pedidos e reinicia em `#001`; **não** repõe estoque.
-- Para backup automático, copie `DATA_DIR` (ex.: cron + `rclone`/S3 ou snapshot do volume).
-- Se o JSON corromper, o processo não sobe: restaure um backup ou mova o arquivo para recomeçar.
+- O Firebase também guarda um histórico automático por alguns dias no console (Backups do Realtime Database, conforme o plano).
+- Migração de um backup JSON para o Firebase: `npm run import:firebase -- backup.json` (use `--force` só depois de baixar um backup).
+- Para backup automático sem Firebase, copie `DATA_DIR` (ex.: cron + `rclone`/S3 ou snapshot do volume).
+- Se o JSON local corromper e não houver Firebase, o processo não sobe: restaure um backup ou mova o arquivo para recomeçar.
+- Se o Firebase estiver configurado e falhar no boot, o processo também não sobe — de propósito, para não iniciar vazio.
 
 ## Testes
 
@@ -248,16 +271,18 @@ Códigos comuns: `invalid_credentials`, `rate_limited`, `forbidden`, `not_found`
 npm test
 ```
 
-`test/api.test.js` sobe a aplicação com um `DATA_DIR` temporário e cobre login, pedidos, estoque, cancelamento, permissões, CSV, backup e reset (22 testes).
+Os testes sobem a aplicação com um `DATA_DIR` temporário e cobrem login, pedidos, estoque, cancelamento, permissões, CSV, backup, reset e a store com um backend Firebase falso.
 
 ## Checklist de produção (back-end)
 
-1. Disco persistente montado em `DATA_DIR`.
-2. Uma única instância/réplica.
-3. `SEED_PASSWORD` forte definido **antes** do primeiro boot.
-4. `COOKIE_SECURE=1` atrás de proxy HTTPS.
-5. Proxy com HTTPS, HSTS e encaminhamento de `X-Forwarded-For`.
-6. Healthcheck em `GET /api/health`.
-7. Backup agendado do `DATA_DIR` para fora do servidor.
-8. Troca das senhas iniciais, do código de convite e revisão dos admins após o primeiro acesso.
-9. Node.js 20+ com restart automático (systemd, Docker `restart: unless-stopped` etc.).
+1. Realtime Database criado no Firebase e regras fechadas para acesso público.
+2. Conta de serviço gerada e configurada via `FIREBASE_SERVICE_ACCOUNT_BASE64` (ou arquivo).
+3. `FIREBASE_DATABASE_URL` apontando para o banco correto.
+4. `SEED_PASSWORD` forte definido **antes** do primeiro boot.
+5. `COOKIE_SECURE=1` atrás de proxy HTTPS.
+6. Proxy com HTTPS, HSTS e encaminhamento de `X-Forwarded-For`.
+7. Healthcheck em `GET /api/health`; conferir `storage.mode = "firebase"`.
+8. Backup JSON baixado pelo app depois de configurar.
+9. Troca das senhas iniciais, do código de convite e revisão dos admins após o primeiro acesso.
+10. Node.js 20+ com restart automático (systemd, Docker `restart: unless-stopped` etc.).
+11. Uma única instância/réplica (o Firebase não muda essa regra).

@@ -7,10 +7,11 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "test": "node --test test/api.test.js",
+    "test": "node --test test/api.test.js test/store.test.js",
     "check:encoding": "node tools/check-encoding.mjs",
     "fix:encoding": "node tools/fix-bad.mjs",
-    "art": "node tools/gen-art.mjs"
+    "art": "node tools/gen-art.mjs",
+    "import:firebase": "node tools/import-firebase.mjs"
   },
   "engines": {
     "node": ">=20 <25"

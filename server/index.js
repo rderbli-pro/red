@@ -35,12 +35,12 @@ const SECURITY_HEADERS = {
 
 /**
  * Cria a aplicação HTTP sem abrir porta (bom para testes).
- * @param {{dataDir?: string, publicDir?: string}} [options]
+ * @param {{dataDir?: string, publicDir?: string, firebase?: any}} [options]
  */
-export function createApp(options = {}) {
+export async function createApp(options = {}) {
   const dataDir = options.dataDir || process.env.DATA_DIR || path.join(ROOT, 'data');
   const publicDir = options.publicDir || path.join(ROOT, 'public');
-  const store = createStore({ dataDir });
+  const store = await createStore({ dataDir, firebase: options.firebase });
   const api = createApi(store);
 
   const handler = async (req, res) => {
@@ -113,12 +113,12 @@ function createHttpServer(handler) {
 
 /**
  * Sobe o servidor HTTP (ou HTTPS, se TLS_CERT/TLS_KEY estiverem definidos).
- * @param {{port?: number, host?: string, dataDir?: string, publicDir?: string}} [options]
+ * @param {{port?: number, host?: string, dataDir?: string, publicDir?: string, firebase?: any}} [options]
  */
-export function startServer(options = {}) {
+export async function startServer(options = {}) {
   const port = Number(options.port ?? process.env.PORT ?? 3000);
   const host = options.host || process.env.HOST || '0.0.0.0';
-  const app = createApp(options);
+  const app = await createApp(options);
 
   let created;
   try {
@@ -154,7 +154,7 @@ export function startServer(options = {}) {
     lines.push('  Rasec - Espetinhos • Feira de Empreendedorismo C.E.P.K');
     lines.push(`  Local:   ${protocol}://localhost:${port}`);
     for (const address of addresses) lines.push(`  Rede:    ${protocol}://${address}:${port}`);
-    lines.push(`  Dados:   ${app.store.file}`);
+    lines.push(`  Dados:   ${app.store.storageDescription}`);
     if (app.store.seeded) {
       lines.push('');
       lines.push('  Primeiro acesso (contas da equipe):');
@@ -168,15 +168,16 @@ export function startServer(options = {}) {
 
   function shutdown(signal) {
     console.log(`\n[rasec] ${signal} recebido, encerrando...`);
-    server.close(() => {
+    server.close(async () => {
       try {
-        app.store.save();
+        await app.store.flush();
       } catch (error) {
         console.error('[rasec] falha ao salvar dados:', error.message);
       }
       process.exit(0);
     });
-    setTimeout(() => process.exit(1), 4000).unref();
+    // O Firebase pode levar alguns segundos; o Render dá ~30s de carência.
+    setTimeout(() => process.exit(1), 25000).unref();
   }
 
   process.once('SIGINT', () => shutdown('SIGINT'));
@@ -186,4 +187,9 @@ export function startServer(options = {}) {
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (isMain) startServer();
+if (isMain) {
+  startServer().catch((error) => {
+    console.error(`\n[rasec] não foi possível iniciar: ${error.message}\n`);
+    process.exitCode = 1;
+  });
+}

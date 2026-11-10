@@ -136,7 +136,9 @@ function logo() {
 const flavors = {
   carne: { base: '#9c4326', light: '#d17c46', dark: '#5f2413', char: '#2c150c' },
   frango: { base: '#cf9140', light: '#f2c777', dark: '#8d5a1c', char: '#4a2d10' },
-  linguica: { base: '#b23c2b', light: '#e0724e', dark: '#6d1d12', char: '#2f0d09' },
+  coracao: { base: '#a83a3a', light: '#dd7a63', dark: '#6b1f24', char: '#2f0d0d' },
+  pimentao: { base: '#4f7a2a', light: '#8fbf4a', dark: '#2d4a16', char: '#14240a' },
+  cebola: { base: '#b56a8f', light: '#e7a9c6', dark: '#6f3550', char: '#2e1422' },
 };
 
 function chunk(p, x, y, w, h, f) {
@@ -160,7 +162,57 @@ function chunk(p, x, y, w, h, f) {
   p.push(rect(x + w - 5, y + 2, 2, 1, f.light));
 }
 
-function espeto(f) {
+/** Coração de galinha em pixel art (20x10), com contorno próprio. */
+const HEART = [
+  '....KKKK..KKKK......',
+  '...KLLLLKKLLLLK.....',
+  '..KLLBBBBBBBBLLK....',
+  '..KBBBBBBBBBBBBK....',
+  '..KBBBBBBBBBBBBK....',
+  '...KBBBBBBBBBBK.....',
+  '....KBBBBBBBBK......',
+  '.....KBBBBBBK.......',
+  '......KBBBBK........',
+  '.......KBBK.........',
+];
+
+function heartChunk(p, x, y, f) {
+  for (let row = 0; row < HEART.length; row += 1) {
+    const line = HEART[row];
+    for (let col = 0; col < line.length; col += 1) {
+      const cell = line[col];
+      if (cell === '.') continue;
+      const color =
+        cell === 'K' ? K : cell === 'L' ? f.light : cell === 'D' ? f.dark : f.base;
+      p.push(rect(x + col, y + row, 1, 1, color));
+    }
+  }
+  // grelha e brilho
+  p.push(rect(x + 6, y + 3, 1, 1, f.char));
+  p.push(rect(x + 14, y + 4, 1, 1, f.char));
+  p.push(rect(x + 8, y + 7, 1, 1, f.dark));
+  p.push(rect(x + 4, y + 1, 1, 1, '#f3b6a4'));
+  p.push(rect(x + 15, y + 1, 1, 1, '#f3b6a4'));
+}
+
+function onionChunk(p, x, y, w, h, f) {
+  chunk(p, x, y, w, h, f);
+  // camadas da cebola
+  p.push(rect(x + 4, y + 3, w - 8, 1, f.light));
+  p.push(rect(x + 6, y + 5, w - 12, 1, f.light));
+  p.push(rect(x + 8, y + 2, 1, h - 4, f.dark));
+}
+
+function pepperChunk(p, x, y, w, h, f) {
+  chunk(p, x, y, w, h, f);
+  // pele brilhante e sementes
+  p.push(rect(x + 2, y + 1, w - 4, 1, f.light));
+  p.push(rect(x + 7, y + 5, 1, 1, W));
+  p.push(rect(x + 13, y + 4, 1, 1, W));
+  p.push(rect(x + 16, y + 6, 1, 1, f.dark));
+}
+
+function skewerBase() {
   const p = [];
   // palito
   p.push(rect(14, 2, 4, 54, K));
@@ -169,10 +221,42 @@ function espeto(f) {
   // ponta
   p.push(rect(15, 0, 2, 2, '#e8d5ae'));
   p.push(rect(16, 1, 1, 1, K));
+  return p;
+}
+
+function espeto(f) {
+  const p = skewerBase();
   // pedaços
   const ys = [5, 16, 27, 38, 48];
   for (const y of ys) {
     chunk(p, 5, y, 22, 10, f);
+  }
+  return svg(32, 58, p.join('\n'));
+}
+
+function espetoCoracao() {
+  const p = skewerBase();
+  const ys = [5, 16, 27, 38, 48];
+  for (const y of ys) {
+    heartChunk(p, 6, y, flavors.coracao);
+  }
+  return svg(32, 58, p.join('\n'));
+}
+
+function espetoMisto() {
+  const p = skewerBase();
+  // carne + pimentão + cebola + carne + pimentão
+  const pieces = [
+    { y: 5, f: flavors.carne, kind: 'carne' },
+    { y: 16, f: flavors.pimentao, kind: 'pimentao' },
+    { y: 27, f: flavors.cebola, kind: 'cebola' },
+    { y: 38, f: flavors.carne, kind: 'carne' },
+    { y: 48, f: flavors.pimentao, kind: 'pimentao' },
+  ];
+  for (const piece of pieces) {
+    if (piece.kind === 'pimentao') pepperChunk(p, 5, piece.y, 22, 10, piece.f);
+    else if (piece.kind === 'cebola') onionChunk(p, 5, piece.y, 22, 10, piece.f);
+    else chunk(p, 5, piece.y, 22, 10, piece.f);
   }
   return svg(32, 58, p.join('\n'));
 }
@@ -183,7 +267,8 @@ const files = {
   'logo-rasec.svg': logo(),
   'espeto-carne.svg': espeto(flavors.carne),
   'espeto-frango.svg': espeto(flavors.frango),
-  'espeto-linguica.svg': espeto(flavors.linguica),
+  'espeto-coracao.svg': espetoCoracao(),
+  'espeto-misto.svg': espetoMisto(),
 };
 
 for (const [name, content] of Object.entries(files)) {
