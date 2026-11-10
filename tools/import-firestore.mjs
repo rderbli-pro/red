@@ -1,32 +1,34 @@
 /**
- * Importa um backup JSON do Rasec para o Firebase Realtime Database.
+ * Importa um backup JSON do Rasec para o Firestore.
  *
  * Uso:
- *   node tools/import-firebase.mjs backup-rasec-2026-11-10.json
- *   node tools/import-firebase.mjs backup.json --force
+ *   node tools/import-firestore.mjs backup-rasec-2026-11-10.json
+ *   node tools/import-firestore.mjs backup.json --force
  *
  * Variáveis de ambiente (as mesmas do servidor):
- *   FIREBASE_DATABASE_URL
- *   FIREBASE_SERVICE_ACCOUNT_FILE  (ou FIREBASE_SERVICE_ACCOUNT_BASE64)
- *   FIREBASE_DB_PATH               (padrão: rasec/db)
+ *   FIRESTORE_SERVICE_ACCOUNT_FILE  (ou FIRESTORE_SERVICE_ACCOUNT_BASE64)
+ *   FIRESTORE_COLLECTION            coleção raiz (padrão: rasec)
  *
- * Sem `--force`, o script se recusa a sobrescrever um nó que já tenha dados.
+ * Sem nenhuma variável, usa automaticamente `firestoreSecretKey.json`
+ * na raiz do projeto.
+ *
+ * Sem `--force`, o script se recusa a sobrescrever uma coleção que já tenha dados.
  */
 import fs from 'node:fs';
-import { createFirebaseBackend } from '../server/firebase.js';
+import { createFirestoreBackend } from '../server/firestore.js';
 
 const args = process.argv.slice(2);
 const file = args.find((arg) => !arg.startsWith('--'));
 const force = args.includes('--force');
 
 if (!file) {
-  console.error('Uso: node tools/import-firebase.mjs <backup.json> [--force]');
+  console.error('Uso: node tools/import-firestore.mjs <backup.json> [--force]');
   process.exit(1);
 }
 
 let backend;
 try {
-  backend = createFirebaseBackend();
+  backend = createFirestoreBackend();
 } catch (error) {
   console.error(`[import] ${error.message}`);
   process.exit(1);
@@ -34,8 +36,8 @@ try {
 
 if (!backend.enabled) {
   console.error(
-    '[import] Configure FIREBASE_DATABASE_URL e uma credencial de conta de serviço ' +
-      '(FIREBASE_SERVICE_ACCOUNT_FILE ou FIREBASE_SERVICE_ACCOUNT_BASE64).',
+    '[import] Nenhuma credencial encontrada. Defina FIRESTORE_SERVICE_ACCOUNT_BASE64, ' +
+      'FIRESTORE_SERVICE_ACCOUNT_FILE ou crie o arquivo firestoreSecretKey.json na raiz.',
   );
   process.exit(1);
 }
@@ -60,13 +62,13 @@ if (
 }
 
 const existing = await backend.load().catch((error) => {
-  console.error(`[import] Falha ao consultar o Firebase: ${error.message}`);
+  console.error(`[import] Falha ao consultar o Firestore: ${error.message}`);
   process.exit(1);
 });
 
 if (existing && !force) {
   console.error(
-    '[import] O nó do Firebase já tem dados. Use --force para sobrescrever ' +
+    '[import] A coleção do Firestore já tem dados. Use --force para sobrescrever ' +
       '(faça um backup antes).',
   );
   process.exit(1);
@@ -76,11 +78,11 @@ if (existing && !force) {
 database.sessions = [];
 
 await backend.save(database).catch((error) => {
-  console.error(`[import] Falha ao gravar no Firebase: ${error.message}`);
+  console.error(`[import] Falha ao gravar no Firestore: ${error.message}`);
   process.exit(1);
 });
 
 console.log(
   `[import] OK: ${database.users.length} usuários, ${database.products.length} produtos, ` +
-    `${database.orders?.length || 0} pedidos em ${backend.databaseUrl}/${backend.databasePath}.`,
+    `${database.orders?.length || 0} pedidos na coleção "${backend.root}" (projeto ${backend.project}).`,
 );

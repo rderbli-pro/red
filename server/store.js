@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { hashPassword } from './auth.js';
-import { createFirebaseBackend } from './firebase.js';
+import { createFirestoreBackend } from './firestore.js';
 import { nowIso } from './util.js';
 
 const DEFAULT_PASSWORD = process.env.SEED_PASSWORD || 'rasec123';
@@ -168,8 +168,8 @@ function readLocalDatabase(file) {
 }
 
 /**
- * Cria o banco local (JSON) e, quando configurado, sincroniza com o Firebase.
- * A leitura do Firebase é assíncrona; por isso a criação da store também é.
+ * Cria o banco local (JSON) e, quando configurado, sincroniza com o Firestore.
+ * A leitura do Firestore é assíncrona; por isso a criação da store também é.
  */
 export async function createStore({ dataDir, firebase } = {}) {
   const directory = path.resolve(dataDir || process.env.DATA_DIR || 'data');
@@ -177,7 +177,7 @@ export async function createStore({ dataDir, firebase } = {}) {
   const file = path.join(directory, 'db.json');
   const backupFile = path.join(directory, 'db.backup.json');
 
-  const remote = firebase || createFirebaseBackend();
+  const remote = firebase || createFirestoreBackend();
 
   let seeded = false;
   /** @type {any} */
@@ -189,18 +189,18 @@ export async function createStore({ dataDir, firebase } = {}) {
       remoteDb = await remote.load();
     } catch (error) {
       throw new Error(
-        `Não foi possível carregar o banco do Firebase. ` +
+        `Não foi possível carregar o banco do Firestore. ` +
           `O app não vai iniciar com dados vazios por segurança. Detalhe: ${error.message}`,
       );
     }
 
     if (remoteDb) {
       if (typeof remoteDb !== 'object' || Array.isArray(remoteDb)) {
-        throw new Error('O banco remoto do Firebase está em um formato inválido.');
+        throw new Error('O banco remoto do Firestore está em um formato inválido.');
       }
       db = migrate(remoteDb);
     } else if (fs.existsSync(file)) {
-      // Primeira vez com Firebase: sobe o banco local que já existe.
+      // Primeira vez com Firestore: sobe o banco local que já existe.
       db = migrate(readLocalDatabase(file));
     } else {
       db = seedDatabase();
@@ -264,7 +264,7 @@ export async function createStore({ dataDir, firebase } = {}) {
         } catch (error) {
           remoteDirty = true;
           lastRemoteError = error;
-          console.error('[rasec] falha ao gravar no Firebase:', error.message);
+          console.error('[rasec] falha ao gravar no Firestore:', error.message);
           scheduleRemoteRetry();
           break;
         }
@@ -296,8 +296,8 @@ export async function createStore({ dataDir, firebase } = {}) {
 
   function storageStatus() {
     return {
-      mode: remote.enabled ? 'firebase' : 'local',
-      database: remote.enabled ? `${remote.databaseUrl}/${remote.databasePath}` : file,
+      mode: remote.enabled ? 'firestore' : 'local',
+      database: remote.enabled ? `${remote.root} (Firestore • ${remote.project})` : file,
       localFile: file,
       pending: remoteDirty,
       ok: !lastRemoteError,
@@ -306,7 +306,7 @@ export async function createStore({ dataDir, firebase } = {}) {
     };
   }
 
-  // Com o Firebase configurado, a primeira gravação remota precisa acontecer
+  // Com o Firestore configurado, a primeira gravação remota precisa acontecer
   // antes de o servidor começar a atender. Sem isso, um deploy que subisse com
   // banco vazio poderia sobrescrever os dados bons.
   if (remote.enabled) {
@@ -317,8 +317,8 @@ export async function createStore({ dataDir, firebase } = {}) {
       lastRemoteError = null;
     } catch (error) {
       throw new Error(
-        `Não foi possível gravar o banco no Firebase durante a inicialização. ` +
-          `Verifique a URL, a conta de serviço e as regras do Realtime Database. Detalhe: ${error.message}`,
+        `Não foi possível gravar o banco no Firestore durante a inicialização. ` +
+          `Verifique a credencial, se o Native Firestore está ativado no projeto e as regras. Detalhe: ${error.message}`,
       );
     }
   }
@@ -353,7 +353,7 @@ export async function createStore({ dataDir, firebase } = {}) {
     },
     get storageDescription() {
       return remote.enabled
-        ? `Firebase (${remote.databaseUrl}/${remote.databasePath}) + cache local`
+        ? `Firestore (coleção "${remote.root}" • projeto ${remote.project}) + cache local`
         : file;
     },
   };

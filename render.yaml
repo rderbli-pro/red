@@ -16,11 +16,9 @@ services:
         value: America/Sao_Paulo
       - key: COOKIE_SECURE
         value: "1"
-      - key: FIREBASE_DB_PATH
-        value: rasec/db
+      - key: FIRESTORE_COLLECTION
+        value: rasec
       - key: SEED_PASSWORD
         sync: false
-      - key: FIREBASE_DATABASE_URL
-        sync: false
-      - key: FIREBASE_SERVICE_ACCOUNT_BASE64
+      - key: FIRESTORE_SERVICE_ACCOUNT_BASE64
         sync: false

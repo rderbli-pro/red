@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { createFirebaseBackend } from '../server/firebase.js';
+import { createFirestoreBackend } from '../server/firestore.js';
 import { createStore } from '../server/store.js';
 
 function tempDir() {
@@ -24,7 +24,7 @@ function fakeFirebase(initial = null) {
     async save(database) {
       if (failures > 0) {
         failures -= 1;
-        throw new Error('Firebase indisponível');
+        throw new Error('Firestore indisponível');
       }
       saves += 1;
       data = structuredClone(database);
@@ -119,7 +119,7 @@ test('Firebase vazio recebe o seed e as alterações', async (t) => {
 
   const store = await createStore({ dataDir: directory, firebase });
 
-  assert.equal(store.storageStatus().mode, 'firebase');
+  assert.equal(store.storageStatus().mode, 'firestore');
   assert.equal(firebase.data.users.length, 7);
   assert.equal(firebase.data.products.length, 4);
   assert.equal(firebase.data.products.find((product) => product.id === 'coracao').price, 800);
@@ -161,43 +161,50 @@ test('store não inicia com Firebase configurado e inacessível', async (t) => {
 
   await assert.rejects(
     () => createStore({ dataDir: directory, firebase }),
-    /Não foi possível gravar o banco no Firebase/,
+    /Não foi possível gravar o banco no Firestore/,
   );
 });
 
-test('firebase exige URL e credencial juntas', () => {
-  assert.equal(createFirebaseBackend({}).enabled, false);
-
-  assert.throws(
-    () =>
-      createFirebaseBackend({
-        FIREBASE_DATABASE_URL: 'https://rasec.firebaseio.com',
-      }),
-    /FIREBASE_SERVICE_ACCOUNT/,
+test('firestore fica desativado por flag ou sem credencial', () => {
+  assert.equal(
+    createFirestoreBackend({
+      FIRESTORE_ENABLED: 'false',
+      FIRESTORE_SERVICE_ACCOUNT: '{}',
+    }).enabled,
+    false,
   );
-
-  assert.throws(
-    () =>
-      createFirebaseBackend({
-        FIREBASE_SERVICE_ACCOUNT_BASE64: Buffer.from('{}').toString('base64'),
-      }),
-    /FIREBASE_DATABASE_URL/,
+  assert.equal(
+    createFirestoreBackend({ FIRESTORE_KEY_FILE: '/nao-existe/credencial.json' }).enabled,
+    false,
   );
 });
 
-test('firebase normaliza URL, nó e credencial Base64', () => {
+test('firestore lê credencial inline e normaliza coleção raiz', () => {
   const account = {
+    project_id: 'rasec',
     client_email: 'rasec@example.iam.gserviceaccount.com',
     private_key: '-----BEGIN PRIVATE KEY-----\nfake\n-----END PRIVATE KEY-----\n',
   };
-  const backend = createFirebaseBackend({
-    FIREBASE_DATABASE_URL: 'https://rasec.firebaseio.com///',
-    FIREBASE_SERVICE_ACCOUNT_BASE64: Buffer.from(JSON.stringify(account)).toString('base64'),
-    FIREBASE_DB_PATH: '/meu/nó/',
+  const backend = createFirestoreBackend({
+    FIRESTORE_SERVICE_ACCOUNT: JSON.stringify(account),
+    FIRESTORE_COLLECTION: '/minha/coleção/',
   });
 
   assert.equal(backend.enabled, true);
-  assert.equal(backend.databaseUrl, 'https://rasec.firebaseio.com');
-  assert.equal(backend.databasePath, 'meu/nó');
-  assert.equal(backend.endpoint, 'https://rasec.firebaseio.com/meu/nó.json');
+  assert.equal(backend.project, 'rasec');
+  assert.equal(backend.root, 'minha/coleção');
+  assert.equal(
+    backend.baseUrl,
+    'https://firestore.googleapis.com/v1/projects/rasec/databases/(default)/documents/minha/coleção',
+  );
+});
+
+test('firestore recusa credencial incompleta', () => {
+  assert.throws(
+    () =>
+      createFirestoreBackend({
+        FIRESTORE_SERVICE_ACCOUNT_BASE64: Buffer.from('{}').toString('base64'),
+      }),
+    /client_email/,
+  );
 });

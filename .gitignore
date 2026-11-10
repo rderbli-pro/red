@@ -8,3 +8,5 @@ Thumbs.db
 .env.*
 serviceAccount*.json
 *firebase-adminsdk*.json
+.opencode/
+firestoreSecretKey.json

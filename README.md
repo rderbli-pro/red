@@ -20,7 +20,7 @@ npm test         # testes da API e da persistência
 npm run check:encoding  # procura textos com encoding quebrado
 npm run fix:encoding    # corrige automaticamente os textos encontrados
 npm run art      # regenera os SVGs do logo e dos espetinhos
-npm run import:firebase  # importa um backup JSON para o Firebase
+npm run import:firestore  # importa um backup JSON para o Firestore
 ```
 
 Requisito: **Node.js 20 ou superior**.
@@ -43,7 +43,7 @@ server/            back-end: HTTP, API, auth, banco JSON e arquivos estáticos
   index.js         bootstrap HTTP/HTTPS, headers e shutdown
   api.js           rotas e regras de negócio
   store.js         seed, migração, gravação atômica e sincronização
-  firebase.js      cliente REST do Firebase Realtime Database
+  firestore.js    cliente REST do Google Cloud Firestore
   auth.js          scrypt e tokens de sessão
   util.js          validação, cookies, datas, dinheiro e CSV
   static.js        entrega de public/ com ETag e anti-path-traversal
@@ -54,11 +54,11 @@ public/            front-end: SPA, views, CSS, assets, manifest e service worker
   css/app.css      design system pixel art
   manifest.webmanifest
   sw.js
-data/              cache local (ignorado pelo git; opcional com Firebase)
+data/              cache local (ignorado pelo git; opcional com Firestore)
   db.json
   db.backup.json
-test/              testes da API e da persistência (local e Firebase falso)
-tools/             geradores de arte, importador do Firebase, checagem de encoding e utilitário WPA
+test/              testes da API e da persistência (local e Firestore falso)
+tools/             geradores de arte, importador do Firestore, checagem de encoding e utilitário WPA
 docs/              documentação de back-end, front-end e deploy no Render
 ```
 
@@ -68,8 +68,8 @@ docs/              documentação de back-end, front-end e deploy no Render
 - Senhas com `scrypt`; papéis `admin` e `vendedor`; rate limit de login.
 - Pedidos com baixa de estoque, cancelamento com reposição e numeração `#001`.
 - Estatísticas do dia, exportação CSV, backup JSON e reset de vendas.
-- Persistência em `data/db.json` com escrita atômica (`tmp` + `rename`) e sincronização opcional com o Firebase.
-- **Firebase opcional**: o banco inteiro é lido/gravado no Realtime Database, então deploys e restarts não apagam os dados.
+- Persistência em `data/db.json` com escrita atômica (`tmp` + `rename`) e sincronização opcional com o Firestore.
+- **Firestore opcional**: o banco inteiro é dividido em documentos da coleção `rasec`, então deploys e restarts não apagam os dados.
 - Headers de segurança, healthcheck em `GET /api/health` e logs de API.
 
 Variáveis principais:
@@ -81,11 +81,11 @@ Variáveis principais:
 | `DATA_DIR` | `./data` | Pasta do cache local e do backup. |
 | `SEED_PASSWORD` | `rasec123` | Senha inicial usada só na criação do banco. |
 | `COOKIE_SECURE` | desligado | `1` força o cookie como `Secure` (use atrás de HTTPS). |
-| `FIREBASE_DATABASE_URL` | — | URL do Realtime Database; ativa a persistência externa. |
-| `FIREBASE_SERVICE_ACCOUNT_BASE64` | — | JSON da conta de serviço em Base64 (recomendado no Render). |
-| `FIREBASE_SERVICE_ACCOUNT` | — | JSON da conta de serviço em uma linha. |
-| `FIREBASE_SERVICE_ACCOUNT_FILE` | — | Caminho do JSON da conta de serviço. |
-| `FIREBASE_DB_PATH` | `rasec/db` | Nó do banco dentro do Realtime Database. |
+| `FIRESTORE_ENABLED` | ligado | `false` desliga o Firestore mesmo com credencial. |
+| `FIRESTORE_SERVICE_ACCOUNT_BASE64` | — | JSON da conta de serviço em Base64 (recomendado no Render). |
+| `FIRESTORE_SERVICE_ACCOUNT` | — | JSON da conta de serviço em uma linha. |
+| `FIRESTORE_SERVICE_ACCOUNT_FILE` | — | Caminho do JSON da conta de serviço. |
+| `FIRESTORE_COLLECTION` | `rasec` | Coleção raiz no Firestore. |
 | `TLS_CERT` / `TLS_KEY` | — | Sobem HTTPS direto no Node. |
 
 Detalhes de rotas, modelo de dados, segurança e backup: [`docs/BACKEND.md`](docs/BACKEND.md).
@@ -112,17 +112,17 @@ Detalhes de views, estado, cache e instalação: [`docs/FRONTEND.md`](docs/FRONT
 
 O servidor continua sendo **uma única instância**, porque o banco é um JSON e as gravações são serializadas. Vercel, Netlify e funções serverless não servem.
 
-Para não perder dados em deploy/restart, use um **Firebase Realtime Database** como banco externo. O app grava o JSON inteiro no Firebase a cada alteração e usa o arquivo local apenas como cache/backup rápido.
+Para não perder dados em deploy/restart, use o **Google Cloud Firestore** como banco externo. O app divide o banco em documentos da coleção `rasec` a cada alteração e usa o arquivo local apenas como cache/backup rápido.
 
-- **Render (recomendado)**: o `render.yaml` já configura Node, HTTPS, healthcheck e as variáveis do Firebase. Com o banco externo, o plano **Free** pode ser usado (ele dorme após 15 min, mas os dados continuam no Firebase). Para a feira, prefira o plano pago para não ter a primeira requisição lenta.
-- **VPS pequena + Caddy + systemd**: controle total e HTTPS automático; pode usar Firebase ou um `DATA_DIR` com disco persistente.
+- **Render (recomendado)**: o `render.yaml` já configura Node, HTTPS, healthcheck e as variáveis do Firestore. Com o banco externo, o plano **Free** pode ser usado (ele dorme após 15 min, mas os dados continuam no Firestore). Para a feira, prefira o plano pago para não ter a primeira requisição lenta.
+- **VPS pequena + Caddy + systemd**: controle total e HTTPS automático; pode usar Firestore ou um `DATA_DIR` com disco persistente.
 - **Só para teste**: túnel (Cloudflare/ngrok), porque a URL muda e depende do PC ligado.
 
-Passo a passo do Firebase e do Render em [`docs/RENDER.md`](docs/RENDER.md).
+Passo a passo do Firestore e do Render em [`docs/RENDER.md`](docs/RENDER.md).
 
 Antes de publicar:
 
-1. Criar o Realtime Database e a conta de serviço no Firebase.
+1. Ativar o Firestore (modo nativo) e a conta de serviço no Firebase.
 2. Configurar `FIREBASE_DATABASE_URL` e `FIREBASE_SERVICE_ACCOUNT_BASE64` no Render.
 3. Definir `SEED_PASSWORD` forte no primeiro boot.
 4. Usar HTTPS e `COOKIE_SECURE=1`.

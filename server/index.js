@@ -35,12 +35,12 @@ const SECURITY_HEADERS = {
 
 /**
  * Cria a aplicação HTTP sem abrir porta (bom para testes).
- * @param {{dataDir?: string, publicDir?: string, firebase?: any}} [options]
+ * @param {{dataDir?: string, publicDir?: string, firestore?: any}} [options]
  */
 export async function createApp(options = {}) {
   const dataDir = options.dataDir || process.env.DATA_DIR || path.join(ROOT, 'data');
   const publicDir = options.publicDir || path.join(ROOT, 'public');
-  const store = await createStore({ dataDir, firebase: options.firebase });
+  const store = await createStore({ dataDir, firebase: options.firestore });
   const api = createApi(store);
 
   const handler = async (req, res) => {
@@ -113,7 +113,7 @@ function createHttpServer(handler) {
 
 /**
  * Sobe o servidor HTTP (ou HTTPS, se TLS_CERT/TLS_KEY estiverem definidos).
- * @param {{port?: number, host?: string, dataDir?: string, publicDir?: string, firebase?: any}} [options]
+ * @param {{port?: number, host?: string, dataDir?: string, publicDir?: string, firestore?: any}} [options]
  */
 export async function startServer(options = {}) {
   const port = Number(options.port ?? process.env.PORT ?? 3000);
@@ -176,7 +176,7 @@ export async function startServer(options = {}) {
       }
       process.exit(0);
     });
-    // O Firebase pode levar alguns segundos; o Render dá ~30s de carência.
+    // O Firestore pode levar alguns segundos; o Render dá ~30s de carência.
     setTimeout(() => process.exit(1), 25000).unref();
   }
 

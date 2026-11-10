@@ -14,7 +14,7 @@ let vendorCookie = '';
 
 async function start() {
   dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rasec-test-'));
-  const app = await createApp({ dataDir });
+  const app = await createApp({ dataDir, firestore: { enabled: false } });
   server = http.createServer(app.handler);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();

@@ -11,7 +11,7 @@
     "check:encoding": "node tools/check-encoding.mjs",
     "fix:encoding": "node tools/fix-bad.mjs",
     "art": "node tools/gen-art.mjs",
-    "import:firebase": "node tools/import-firebase.mjs"
+    "import:firestore": "node tools/import-firestore.mjs"
   },
   "engines": {
     "node": ">=20 <25"
